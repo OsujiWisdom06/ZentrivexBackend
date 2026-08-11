@@ -1,15 +1,7 @@
-
 import dotenv from "dotenv";
-import Brevo from "@getbrevo/brevo";
+import { BrevoClient } from "@getbrevo/brevo";
 
 dotenv.config();
-
-const apiInstance = new Brevo.TransactionalEmailsApi();
-
-apiInstance.setApiKey(
-  Brevo.TransactionalEmailsApiApiKeys.apiKey,
-  process.env.BREVO_API_KEY
-);
 
 console.log(
   "BREVO_API_KEY exists:",
@@ -21,36 +13,43 @@ console.log(
   process.env.BREVO_SENDER_EMAIL
 );
 
+const brevo = new BrevoClient({
+  apiKey: process.env.BREVO_API_KEY,
+});
+
 export const sendEmail = async ({ to, subject, html }) => {
   try {
-    const sendSmtpEmail = new Brevo.SendSmtpEmail();
+    const result =
+      await brevo.transactionalEmails.sendTransacEmail({
+        subject,
 
-    sendSmtpEmail.subject = subject;
+        htmlContent: html,
 
-    sendSmtpEmail.htmlContent = html;
+        sender: {
+          name:
+            process.env.BREVO_SENDER_NAME ||
+            "Zentrivex Trade",
 
-    sendSmtpEmail.sender = {
-      name: process.env.BREVO_SENDER_NAME || "Zentrivex Trade",
-      email: process.env.BREVO_SENDER_EMAIL,
-    };
+          email: process.env.BREVO_SENDER_EMAIL,
+        },
 
-    sendSmtpEmail.to = [
-      {
-        email: to,
-      },
-    ];
-
-    const result = await apiInstance.sendTransacEmail(
-      sendSmtpEmail
-    );
+        to: [
+          {
+            email: to,
+          },
+        ],
+      });
 
     console.log("📧 Brevo email sent successfully:", result);
 
     return result;
   } catch (error) {
+    console.error("❌ Brevo email sending error:");
+
     console.error(
-      "❌ Brevo email sending error:",
-      error.response?.body || error.message
+      error.body ||
+      error.message ||
+      error
     );
 
     throw error;
