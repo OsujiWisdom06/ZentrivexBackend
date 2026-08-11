@@ -9,7 +9,6 @@ import { sendEmail } from "../services/email.service.js";
 import verifyEmailTemplate from "../templates/verifyEmailTemplate.js";
 
 import resetPasswordTemplate from "../templates/resetPasswordTemplates.js";
-
 // =====================================================
 // SIGN UP
 // =====================================================
@@ -23,7 +22,10 @@ export const signup = async (req, res) => {
       confirmPassword,
     } = req.body;
 
-    // Required fields
+    // =====================================================
+    // REQUIRED FIELDS
+    // =====================================================
+
     if (!fullName || !email || !password || !confirmPassword) {
       return res.status(400).json({
         success: false,
@@ -31,7 +33,10 @@ export const signup = async (req, res) => {
       });
     }
 
-    // Check passwords
+    // =====================================================
+    // CHECK PASSWORDS
+    // =====================================================
+
     if (password !== confirmPassword) {
       return res.status(400).json({
         success: false,
@@ -39,9 +44,16 @@ export const signup = async (req, res) => {
       });
     }
 
+    // =====================================================
+    // NORMALIZE EMAIL
+    // =====================================================
+
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check email
+    // =====================================================
+    // CHECK EXISTING USER
+    // =====================================================
+
     const existingUser = await User.findOne({
       email: normalizedEmail,
     });
@@ -53,17 +65,26 @@ export const signup = async (req, res) => {
       });
     }
 
-    // Hash password
+    // =====================================================
+    // HASH PASSWORD
+    // =====================================================
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Verification token
+    // =====================================================
+    // CREATE VERIFICATION TOKEN
+    // =====================================================
+
     const verificationToken =
       crypto.randomBytes(32).toString("hex");
 
     const verificationTokenExpires =
       new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // Create user
+    // =====================================================
+    // CREATE USER
+    // =====================================================
+
     const user = await User.create({
       fullName: fullName.trim(),
       email: normalizedEmail,
@@ -72,12 +93,17 @@ export const signup = async (req, res) => {
       verificationTokenExpires,
     });
 
-    // Verification link
+    // =====================================================
+    // CREATE VERIFICATION LINK
+    // =====================================================
+
     const verificationLink =
       `${process.env.BACKEND_URL}/api/auth/verify-email?token=${verificationToken}`;
 
-    // Send verification email in the background
-    // The signup request will NOT wait for Gmail.
+    // =====================================================
+    // SEND VERIFICATION EMAIL THROUGH BREVO
+    // =====================================================
+
     sendEmail({
       to: user.email,
       subject: "Verify Your Zentrivex Trade Email",
@@ -85,14 +111,28 @@ export const signup = async (req, res) => {
         user.fullName,
         verificationLink
       ),
-    }).catch((emailError) => {
-      console.error(
-        "Verification email failed:",
-        emailError.message
-      );
-    });
+    })
+      .then(() => {
+        console.log(
+          `📧 Verification email sent to ${user.email}`
+        );
+      })
+      .catch((emailError) => {
+        console.error(
+          "❌ Verification email failed:"
+        );
 
-    // Respond immediately
+        console.error(
+          emailError.response?.body ||
+          emailError.message ||
+          emailError
+        );
+      });
+
+    // =====================================================
+    // RESPOND TO FRONTEND
+    // =====================================================
+
     return res.status(201).json({
       success: true,
       message:
@@ -107,14 +147,16 @@ export const signup = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Signup error:", error);
+    console.error("❌ Signup error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while creating your account.",
+      message:
+        "Something went wrong while creating your account.",
     });
   }
 };
+
 
 
 // =====================================================

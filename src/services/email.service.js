@@ -1,39 +1,56 @@
+
 import dotenv from "dotenv";
-import nodemailer from "nodemailer";
+import Brevo from "@getbrevo/brevo";
 
 dotenv.config();
 
-console.log("EMAIL_USER:", process.env.EMAIL_USER);
-console.log(
-  "EMAIL_PASS exists:",
-  !!process.env.EMAIL_PASS
+const apiInstance = new Brevo.TransactionalEmailsApi();
+
+apiInstance.setApiKey(
+  Brevo.TransactionalEmailsApiApiKeys.apiKey,
+  process.env.BREVO_API_KEY
 );
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
+console.log(
+  "BREVO_API_KEY exists:",
+  !!process.env.BREVO_API_KEY
+);
 
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+console.log(
+  "BREVO_SENDER_EMAIL:",
+  process.env.BREVO_SENDER_EMAIL
+);
 
 export const sendEmail = async ({ to, subject, html }) => {
   try {
-    const info = await transporter.sendMail({
-      from: `"Zentrivex Trade" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      html,
-    });
+    const sendSmtpEmail = new Brevo.SendSmtpEmail();
 
-    console.log("📧 Email sent:", info.messageId);
+    sendSmtpEmail.subject = subject;
 
-    return info;
+    sendSmtpEmail.htmlContent = html;
+
+    sendSmtpEmail.sender = {
+      name: process.env.BREVO_SENDER_NAME || "Zentrivex Trade",
+      email: process.env.BREVO_SENDER_EMAIL,
+    };
+
+    sendSmtpEmail.to = [
+      {
+        email: to,
+      },
+    ];
+
+    const result = await apiInstance.sendTransacEmail(
+      sendSmtpEmail
+    );
+
+    console.log("📧 Brevo email sent successfully:", result);
+
+    return result;
   } catch (error) {
     console.error(
-      "❌ Email sending error:",
-      error.message
+      "❌ Brevo email sending error:",
+      error.response?.body || error.message
     );
 
     throw error;
