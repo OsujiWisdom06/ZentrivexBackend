@@ -10,7 +10,6 @@ import verifyEmailTemplate from "../templates/verifyEmailTemplate.js";
 
 import resetPasswordTemplate from "../templates/resetPasswordTemplates.js";
 
-
 // =====================================================
 // SIGN UP
 // =====================================================
@@ -77,27 +76,23 @@ export const signup = async (req, res) => {
     const verificationLink =
       `${process.env.BACKEND_URL}/api/auth/verify-email?token=${verificationToken}`;
 
-    // Send email
-    try {
-      await sendEmail({
-        to: user.email,
-        subject: "Verify Your Zentrivex Trade Email",
-        html: verifyEmailTemplate(
-          user.fullName,
-          verificationLink
-        ),
-      });
-    } catch (emailError) {
-
+    // Send verification email in the background
+    // The signup request will NOT wait for Gmail.
+    sendEmail({
+      to: user.email,
+      subject: "Verify Your Zentrivex Trade Email",
+      html: verifyEmailTemplate(
+        user.fullName,
+        verificationLink
+      ),
+    }).catch((emailError) => {
       console.error(
         "Verification email failed:",
         emailError.message
       );
+    });
 
-      // We don't delete the user.
-      // They can request another verification email later.
-    }
-
+    // Respond immediately
     return res.status(201).json({
       success: true,
       message:
@@ -112,7 +107,6 @@ export const signup = async (req, res) => {
     });
 
   } catch (error) {
-
     console.error("Signup error:", error);
 
     return res.status(500).json({
@@ -265,14 +259,12 @@ export const login = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // FORGOT PASSWORD
 // =====================================================
 
 export const forgotPassword = async (req, res) => {
   try {
-
     const { email } = req.body;
 
     if (!email) {
@@ -298,41 +290,41 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
+    // Generate reset token
     const resetToken =
       crypto.randomBytes(32).toString("hex");
 
+    // Token expires in 1 hour
     const resetPasswordExpires =
       new Date(Date.now() + 60 * 60 * 1000);
 
+    // Save reset information
     user.resetPasswordToken = resetToken;
-
-    user.resetPasswordExpires =
-      resetPasswordExpires;
+    user.resetPasswordExpires = resetPasswordExpires;
 
     await user.save();
 
+    // Reset password link
     const resetLink =
       `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
-    try {
-
-      await sendEmail({
-        to: user.email,
-        subject: "Reset Your Zentrivex Trade Password",
-        html: resetPasswordTemplate(
-          user.fullName,
-          resetLink
-        ),
-      });
-
-    } catch (emailError) {
-
+    // Send email in the background
+    // The API will NOT wait for Gmail.
+    sendEmail({
+      to: user.email,
+      subject: "Reset Your Zentrivex Trade Password",
+      html: resetPasswordTemplate(
+        user.fullName,
+        resetLink
+      ),
+    }).catch((emailError) => {
       console.error(
         "Reset email failed:",
         emailError.message
       );
-    }
+    });
 
+    // Respond immediately
     return res.status(200).json({
       success: true,
       message:
@@ -340,7 +332,6 @@ export const forgotPassword = async (req, res) => {
     });
 
   } catch (error) {
-
     console.error(
       "Forgot password error:",
       error
