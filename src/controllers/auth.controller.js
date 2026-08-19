@@ -97,8 +97,8 @@ export const signup = async (req, res) => {
     // CREATE VERIFICATION LINK
     // =====================================================
 
-    const verificationLink =
-      `${process.env.BACKEND_URL}/api/auth/verify-email?token=${verificationToken}`;
+   const verificationLink =
+  `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
 
     // =====================================================
     // SEND VERIFICATION EMAIL THROUGH BREVO
@@ -165,13 +165,13 @@ export const signup = async (req, res) => {
 
 export const verifyEmail = async (req, res) => {
   try {
-
     const { token } = req.query;
 
     if (!token) {
-      return res.status(400).send(`
-        <h2>Verification token is missing.</h2>
-      `);
+      return res.status(400).json({
+        success: false,
+        message: "Verification token is missing.",
+      });
     }
 
     const user = await User.findOne({
@@ -179,39 +179,43 @@ export const verifyEmail = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).send(`
-        <h2>Invalid or expired verification link.</h2>
-      `);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired verification link.",
+      });
     }
 
     if (
       !user.verificationTokenExpires ||
       user.verificationTokenExpires < new Date()
     ) {
-      return res.status(400).send(`
-        <h2>This verification link has expired.</h2>
-      `);
+      return res.status(400).json({
+        success: false,
+        message: "This verification link has expired.",
+      });
     }
 
+    // Verify the user
     user.isVerified = true;
 
+    // Remove verification token
     user.verificationToken = null;
-
     user.verificationTokenExpires = null;
 
     await user.save();
 
-    return res.redirect(
-      `${process.env.FRONTEND_URL}/login?verified=true`
-    );
+    return res.status(200).json({
+      success: true,
+      message: "Email verified successfully.",
+    });
 
   } catch (error) {
-
     console.error("Verify email error:", error);
 
-    return res.status(500).send(`
-      <h2>Something went wrong while verifying your email.</h2>
-    `);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while verifying your email.",
+    });
   }
 };
 
